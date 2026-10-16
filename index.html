@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./node_modules/katex/dist/katex.min.css">
+  <link rel="stylesheet" href="./style.css">
+  <title>TrajectoryFieldNet · Research Seminar</title>
+</head>
+
+<body>
+  <main id="stage">
+    <div id="deck">
+      <section class="slide cover active" data-section="研究问题" data-time="0:55" data-source="算法报告 §I；EV-UAV 数据集">
+        <div id="event3d-cover" class="scene cover-scene" aria-label="真实事件的三维时空点云"></div>
+        <div class="cover-ink">
+          <div class="cover-meta">ACADEMIC PRESENTATION <span>Event-based Tiny UAV Segmentation</span></div>
+          <p class="cover-question">事件级微小目标分割中的<br>时空表示与连续时间推理</p>
+          <h1>TrajectoryFieldNet</h1>
+          <p class="cover-sub">Dual-Domain Continuous-Time Modeling<br>for Event-Based Tiny UAV Segmentation</p>
+          <div class="cover-bottom"><span>Xianzhen Tan · EPFL_ZH</span><span>Event Tokens · 3D Field · Continuous
+              Query</span></div>
+        </div>
+        <aside class="speaker">事件相机以异步事件流记录亮度变化。报告围绕一个表示学习问题展开：在保留事件原始时间戳的条件下，如何构造能够整合长时空上下文的逐事件分割模型。</aside>
+      </section>
+
+      <section class="slide dataset-characteristics-slide" data-order="4" data-section="数据集特征" data-time="1:35"
+        data-source="EV-UAV arXiv-2506.23575v1 §EV-UAV benchmark；datasets.pdf；算法报告 §II">
+        <div class="slide-head">
+          <div class="chapter">01 / DATA CHARACTERISTICS</div>
+          <h2>EV-UAV 数据特征：极小目标、复杂背景与多条件事件流</h2>
+        </div>
+        <figure class="dataset-figure"><img src="assets/evuav_dataset_stats.png" alt="EV-UAV 数据集的位置、目标尺度与场景多样性统计">
+          <figcaption>Fig. 2 · EV-UAV 数据分布：目标位置、噪声与光照、目标数量和目标尺度共同构成实验条件。</figcaption>
+        </figure>
+        <div class="dataset-facts">
+          <div><b>输入</b><span>8,000 ms event stream · 346 × 260 px · 1 ms temporal unit</span></div>
+          <div><b>划分</b><span>99 train / 24 validation / 24 test sequences（比赛测试集是31 sequences）</span></div>
+          <div><b>目标尺度</b><span>45.1% extremely tiny，34.1% tiny，20.8% small；目标事件在复杂背景中占比极低</span></div>
+          <div><b>变化因素</b><span>照度、噪声水平、目标数量、目标尺度与背景结构共同改变事件流形态</span></div>
+        </div>
+        <footer>DATASET / 任务难点首先来自数据分布：目标小、事件稀疏、背景结构复杂且场景条件变化大</footer>
+        <aside class="speaker">按照 EV-UAV 论文的 benchmark features 顺序，先建立数据集直觉。Fig. 2
+          同时展示位置分布、目标尺度和场景多样性。所有目标都小于常规目标检测中的大尺度范围，extremely tiny 占比最高；同时，噪声、照度和目标数量改变了目标事件与背景事件的相对结构。</aside>
+      </section>
+
+      <section class="slide explorer-slide" data-order="5" data-section="研究问题" data-time="2:00"
+        data-source="EV-UAV 数据集；val_019 / val_014 / val_017 / val_018">
+        <div class="slide-head">
+          <div class="chapter">02 / EVENT STREAM OBSERVATION</div>
+          <h2>事件流观测：目标事件在时空中形成稀疏连续曲线</h2>
+        </div>
+        <div class="embedded-explorer"><iframe src="./event-explorer/preview.html" title="EV-UAV 事件数据交互观测台"></iframe>
+        </div>
+        <footer>DATA / 可切换序列、目标 ID、时间窗、极性与空间区域；完整事件用于统计，绘图比例只影响显示</footer>
+        <aside class="speaker">该观测台用于展示数据分布特征：目标事件比例低，目标实例在时间轴上具有不同的持续区间与空间轨迹。实例 ID
+          是数据集中的标注索引，不直接等同于跨片段的物理身份。由此引出模型要求：在长时、稀疏且背景结构复杂的事件流上执行逐事件预测。</aside>
+      </section>
+
+      <section class="slide" data-order="7" data-section="研究问题" data-time="1:35"
+        data-source="算法报告 §I、§III-A，Eq. (1)–(2)；EV-UAV">
+        <div class="slide-head">
+          <div class="chapter">03 / PROBLEM FORMULATION</div>
+          <h2>问题定义：面向原始事件集合的二分类语义分割</h2>
+        </div>
+        <div class="task-layout">
+          <div class="task-left">
+            <p class="lead">事件相机报告亮度变化。一个样本是有序事件集，而区别于固定帧视频表示：</p>
+            <div class="formula"><span class="math"
+                data-tex="E=\{e_i\}_{i=1}^{N},\quad e_i=(x_i,y_i,t_i,p_i),\quad q_i=P(\ell_i=1\mid E)"></span><span
+                class="eqno">(1)</span></div>
+            <div class="fact-line"><strong>253,955</strong> 条事件 <i></i><strong>2,139</strong> 条目标事件
+              <i></i><strong>0.842%</strong> 占比</div>
+            <p class="caption">val_015 的真实统计。目标标签随事件存储；输入仍是原始坐标和时间。</p>
+            <div class="formula score"><span class="math"
+                data-tex="S=0.4P_d+0.3e^{-10^{4}F_a}+0.2\operatorname{IoU}+0.1\operatorname{SegAcc}"></span><span
+                class="eqno">(2)</span></div>
+            <div class="metric-defs">
+              <div><b>$P_d$</b><span>目标检测概率：被正确检测目标的比例。</span></div>
+              <div><b>$F_a$</b><span>单位时间虚警率：背景事件被误报为目标的频率。</span></div>
+              <div><b>IoU</b><span>预测目标事件集合与真值集合的交并比。</span></div>
+              <div><b>SegAcc</b><span>事件级语义分割准确率。</span></div>
+            </div>
+            <p class="implication"><b>评价约束</b>：同时保持目标召回、事件重叠和低虚警。</p>
+          </div>
+          <div id="event3d-demo" class="scene demo-scene" aria-label="可旋转的时间、x、y 三维事件点云"></div>
+        </div>
+        <div class="scene-controls"><button id="event-play" aria-label="播放时间窗" title="播放/暂停">▶</button><label
+            for="event-time">t = <output id="event-time-label">4.0 s</output></label><input id="event-time" type="range"
+            min="0" max="8000" value="4000" step="50" aria-label="时间窗中心"><label><input id="event-target" type="checkbox"
+              checked> 突出目标</label><button id="event-reset" aria-label="重置视角" title="重置视角">↺</button><span
+            class="scene-legend">青：背景抽样　朱红：目标事件</span></div>
+        <footer>PROBLEM / 输出仍回到 N 条原始事件，而不是 96 个时间格</footer>
+        <aside class="speaker">式(1)定义输入事件集合与逐事件目标概率。式(2)说明评价函数同时关注检测概率、误报代价、交并比和分割准确率。模型的直接学习目标是从事件本身恢复事件级语义标签。</aside>
+      </section>
+
+      <section class="slide" data-order="2" data-section="已有研究" data-time="1:40"
+        data-source="EV-UAV / EV-SpSegNet, ICCV 2025；算法报告 §II-A、§III-G">
+        <div class="slide-head">
+          <div class="chapter">05 / EV-UAV AND PRIOR WORK</div>
+          <h2>EV-UAV 的任务定位：事件级标注将微小目标检测转化为语义分割</h2>
+        </div>
+        <div class="prior-layout">
+          <div class="prior-claim"><span class="minor">数据集与基线贡献</span>
+            <p>EV-UAV 提供大规模事件级目标标注，并以时空连续性约束引导弱目标事件保留。</p>
+            <div class="citation">Chen et al., Event-based Tiny Object Detection, ICCV 2025</div>
+          </div>
+          <div class="prior-process">
+            <div><b>输入</b><span>异步事件 <span class="math" data-tex="(x,y,t,p)"></span></span></div>
+            <div><b>监督</b><span>事件标签 + Spatiotemporal Correlation</span></div>
+            <div><b>输出</b><span>事件级目标概率</span></div>
+          </div>
+          <div class="prior-gap"><span class="minor">表示层面的未决问题</span>
+            <ol>
+              <li>点集表示保留时间，但长序列邻域易受背景活动干扰。</li>
+              <li>帧化或体素化提供规则上下文，却引入时间量化误差。</li>
+              <li>需要独立上下文域，并将其连续查询回原始事件时刻。</li>
+            </ol>
+          </div>
+        </div>
+        <div class="window-gap">
+          <div><b>标注阶段</b><span>人工选取具有代表性的短时窗口，并在窗口内完成事件级标注。</span></div>
+          <div><b>推理阶段</b><span>采用全自动、无间断的滑动窗口处理，禁止人工挑选窗口。</span></div>
+          <p>因此，标注阶段成立的局部时空连续性假设，在连续滑窗推理中可能因窗口边界、目标稀疏性与背景活动变化而失效。</p>
+        </div>
+        <p class="bridge">研究问题由监督设计转向表示设计：如何联合精确事件表示与规则时空上下文。</p>
+        <footer>PRIOR WORK / 标注窗口与推理窗口存在选择机制差异；双域连续查询用于降低该差异带来的表示脆弱性</footer>
+        <aside class="speaker">EV-UAV 的核心价值在于任务定义、事件级标注和 STC
+          监督。需要进一步区分标注过程与推理过程：标注阶段由人工选择合适短窗口，推理阶段则必须对连续事件流执行全自动滑动窗口处理。局部连续性假设因此面临窗口边界和场景变化带来的失效风险。</aside>
+      </section>
+
+      <section class="slide related-table-slide" data-order="6" data-section="已有方法" data-time="1:55"
+        data-source="EV-UAV arXiv-2506.23575v1 §Related work；Table 1；SpSegNet.pdf">
+        <div class="slide-head">
+          <div class="chapter">06 / METHOD LANDSCAPE</div>
+          <h2>研究现状:最新的EV-UAV 以及之前的方法</h2>
+        </div>
+        <div class="related-grid">
+          <div>
+            <h3>相关方法的处理范式</h3>
+            <div class="method-summary">
+              <div><b>直接稀疏处理</b><span>动态图、点云或脉冲网络直接传播事件信息，保持异步性，但依赖局部连接或专用计算机制。</span></div>
+              <div><b>稠密事件表示</b><span>将事件转换为时间表面、体素或事件帧，再使用成熟卷积网络，计算规整但引入投影与冗余背景。</span></div>
+              <div><b>结构先验</b><span>利用拓扑、运动表面或时空相关性强化目标连续性，但结构约束不能单独恢复精确事件时间。</span></div>
+            </div>
+            <h3 class="mini-heading">EV-UAV 的数据集定位</h3>
+            <table class="paper-mini-table">
+              <thead>
+                <tr>
+                  <th>Dataset</th>
+                  <th>Scale</th>
+                  <th>Label</th>
+                  <th>UAV</th>
+                  <th>BL/NL/LL</th>
+                  <th>MS/MT</th>
+                  <th>Year</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>VisEvent</td>
+                  <td>84×66</td>
+                  <td>BBox</td>
+                  <td>×</td>
+                  <td>×/✓/✓</td>
+                  <td>✓/×</td>
+                  <td>2023</td>
+                </tr>
+                <tr>
+                  <td>EventVOT</td>
+                  <td>129×100</td>
+                  <td>BBox</td>
+                  <td>×</td>
+                  <td>×/✓/✓</td>
+                  <td>✓/×</td>
+                  <td>2024</td>
+                </tr>
+                <tr>
+                  <td>EvDET200K</td>
+                  <td>68×45</td>
+                  <td>BBox</td>
+                  <td>×</td>
+                  <td>×/✓/✓</td>
+                  <td>✓/✓</td>
+                  <td>2024</td>
+                </tr>
+                <tr>
+                  <td>F-UAV-D</td>
+                  <td>—</td>
+                  <td>BBox</td>
+                  <td>✓</td>
+                  <td>×/✓/×</td>
+                  <td>×/×</td>
+                  <td>2024</td>
+                </tr>
+                <tr>
+                  <td>NeRDD</td>
+                  <td>55×31</td>
+                  <td>BBox</td>
+                  <td>✓</td>
+                  <td>×/✓/×</td>
+                  <td>×/✓</td>
+                  <td>2024</td>
+                </tr>
+                <tr class="highlight-row">
+                  <td>EV-UAV</td>
+                  <td>6.8×5.4</td>
+                  <td>Seg</td>
+                  <td>✓</td>
+                  <td>✓/✓/✓</td>
+                  <td>✓/✓</td>
+                  <td>2025</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="table-caption">Table 1 的信息重点：EV-UAV 同时提供 UAV-centric、multi-target、multi-scene 和 event-level
+              segmentation。</p>
+          </div>
+          <figure class="related-figure"><img src="assets/evuav_spsegnet.png"
+              alt="EV-SpSegNet 的 U-shaped 稀疏点云网络与 GDSCA 模块">
+            <figcaption><b>Fig. 4 · EV-SpSegNet</b><br>论文基线通过 GDSC 的多尺度局部卷积与 Patch Attention
+              的跨区域交互处理连续目标曲线。该路线说明了已有方法如何在稀疏事件点云上扩大感受野，也为 TrajectoryFieldNet 的双域设计提供对照。</figcaption>
+          </figure>
+        </div>
+        <footer>RELATED WORK / 数据集决定问题边界，表征方式决定时间精度、上下文范围与计算代价之间的折衷</footer>
+        <aside class="speaker">左侧归纳论文相关工作中的两类事件方法与结构先验；右侧复现 EV-SpSegNet 结构，说明已有方法如何直接处理稀疏点云并通过 GDSCA 扩大感受野。下方 Table 1
+          强调数据集缺口：既有数据集多数是框标注、非 UAV-centric 或目标尺度较大，EV-UAV 才将极小目标、复杂背景和事件级分割结合起来。</aside>
+      </section>
+
+      <section class="slide paper-evidence-slide" data-order="3" data-section="数据与标注" data-time="1:35"
+        data-source="EV-UAV arXiv-2506.23575v1 §Introduction、§EV-UAV benchmark；left_top.pdf、label_method.pdf">
+        <div class="slide-head">
+          <div class="chapter">04 / EVENT-LEVEL ANNOTATION</div>
+          <h2>事件级监督的构造：由短时窗口框标注扩展至 XYT 事件标签</h2>
+        </div>
+        <div class="paper-evidence-grid">
+          <figure><img src="assets/evuav_event_vs_rgb.png" alt="事件相机与 RGB 相机在复杂光照和目标运动记录上的对比">
+            <figcaption>事件相机以异步亮度变化记录运动信息，适用于高动态范围和快速运动场景。</figcaption>
+          </figure>
+          <figure><img src="assets/evuav_label_method.png" alt="事件级标注方法：事件累积、二维框标注、XYT 三维框扩展与事件筛选">
+            <figcaption>标注流程：短时事件累积 → 事件帧二维框标注 → 在 XYT 空间扩展为三维框 → 筛选框内事件。</figcaption>
+          </figure>
+        </div>
+        <div class="annotation-chain">
+          <div><b>人工标注对象</b><span>短时累积事件帧中的二维目标框</span></div>
+          <div><b>时空扩展</b><span>依据窗口时间区间将二维框扩展到 XYT 三维空间</span></div>
+          <div><b>训练标签</b><span>三维框内事件被赋予目标标签，形成近似事件级监督</span></div>
+        </div>
+        <footer>DATA PROTOCOL / 事件级标签具有高时间分辨率，但其生成依赖短窗口人工选择与窗口内几何假设</footer>
+        <aside class="speaker">本页直接采用 EV-UAV 论文的标注流程图。标注并非逐事件人工点击，而是在短时累积事件帧上标注二维框，再依据时间区间扩展到 XYT
+          三维框，筛选框内事件作为目标事件标签。该流程解释了事件级监督的来源，也引出下一页的训练—推理窗口差异。</aside>
+      </section>
+
+      <section class="slide" data-order="8" data-section="研究动机" data-time="1:50"
+        data-source="算法报告 Fig. 1；src/model/trajectory_field_net.py；configs/test.yaml">
+        <div class="slide-head">
+          <div class="chapter">07 / REPRESENTATION BOTTLENECK</div>
+          <h2>关键瓶颈：上下文需要规则网格，预测仍需保持事件级时间精度</h2>
+        </div>
+        <div class="hypothesis">
+          <div><span>Ⅰ</span><b>事件域精度保持</b>
+            <p>保留每个 <span class="math" data-tex="(x_i,y_i,t_i,p_i)"></span> 的事件地址。</p>
+          </div>
+          <div><span>Ⅱ</span><b>规则场上下文建模</b>
+            <p>在统计 3D 场上建立局部至全局的时空依赖。</p>
+          </div>
+          <div><span>Ⅲ</span><b>连续时刻回查询</b>
+            <p>在原始 <span class="math" data-tex="t_i"></span> 处采样场特征并完成融合。</p>
+          </div>
+        </div>
+        <figure class="architecture"><img src="assets/architecture.svg"
+            alt="TrajectoryFieldNet 纯主干：原始事件 token 与统计场双路，3D 金字塔，连续查询，逐事件分类">
+          <figcaption>TrajectoryFieldNet 主干结构。上下文场采用 96 个时间切片，预测输出仍位于原始事件集合。</figcaption>
+        </figure>
+        <footer>PROPOSED REPRESENTATION / 事件域保留精度；场域建模上下文；连续查询完成跨域融合</footer>
+        <aside class="speaker">该结构将表示矛盾显式分解为三个环节：事件域负责精确时空地址，场域负责规则化上下文建模，连续查询负责将上下文映射回原始事件时刻。96 个时间切片属于上下文表示，不属于输出标签空间。
+        </aside>
+      </section>
+
+      <section class="slide" data-section="方法细节" data-time="1:50"
+        data-source="算法报告 §III-B/C，Eq. (3)–(5)；trajectory_field_net.py">
+        <div class="slide-head">
+          <div class="chapter">07 / EXACT-EVENT REPRESENTATION</div>
+          <h2>事件域编码：稀疏坐标规范化与多尺度局部聚合</h2>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-main">
+            <div class="formula"><span class="math"
+                data-tex="f_i\in\mathbb R^{10}\xrightarrow{\mathrm{MLP}_{evt}}h_i^0\in\mathbb R^{64}"></span><span
+                class="eqno">(3)</span></div>
+            <p>事件特征包含归一化 x/y/t/p、时间相位、边界距离、50 ms 全局密度和局部密度。它们不访问标签。</p>
+            <div class="formula"><span class="math"
+                data-tex="c_i=|\mathcal S|^{-1/2}\sum_{s\in\mathcal S}|\mathcal N_s(i)|^{-1}\sum_{j\in\mathcal N_s(i)}W_v h_j^0"></span><span
+                class="eqno">(4)</span></div>
+            <div class="formula"><span class="math"
+                data-tex="h_i=h_i^0+\tanh(\gamma)\,\sigma(W_g[h_i^0;c_i])W_u[h_i^0;c_i]"></span><span
+                class="eqno">(5)</span></div>
+          </div>
+          <aside class="detail-aside">
+            <h3>稀疏坐标规范化的必要性</h3>
+            <p>相同 <span class="math" data-tex="(x,y,t_{ms})"></span> 的事件合并成一个稀疏站点，保存映射 <span class="math"
+                data-tex="\pi:\{1,\ldots,N\}\to\{1,\ldots,M\}"></span>。</p>
+            <h3>三个局部尺度</h3>
+            <ul>
+              <li>(2, 2, 32)：细粒度邻域</li>
+              <li>(4, 4, 128)：中程支持</li>
+              <li>(8, 8, 512)：长时局部上下文</li>
+            </ul>
+            <p class="aside-end">预测 logit 通过 <span class="math" data-tex="\pi"></span> 映回 N 条事件。</p>
+          </aside>
+        </div>
+        <footer>MECHANISM / 邻域提供上下文，门控残差保留事件自身</footer>
+        <aside class="speaker">该步骤解决稀疏卷积的坐标唯一性约束。重复坐标执行均值聚合，并通过映射 pi 将结果恢复到全部原始事件，因此预测粒度保持不变。</aside>
+      </section>
+
+      <section class="slide" data-section="方法细节" data-time="2:15"
+        data-source="算法报告 §III-C/D，Table I，Eq. (6)–(9)；configs/test.yaml">
+        <div class="slide-head">
+          <div class="chapter">08 / SPATIOTEMPORAL FIELD</div>
+          <h2>时空场编码：局部 3D 卷积、中尺度运动对齐与全局时间建模</h2>
+        </div>
+        <div class="field-story">
+          <div class="field-tensor"><span class="math"
+              data-tex="F\in\mathbb R^{B\times12\times96\times130\times173}"></span>
+            <p>12 个统计量描述计数、极性、占据、bin 内时间残差、密度、时间相位与位置。96 个 bin 覆盖约 8 秒，提供上下文。</p>
+            <div class="formula"><span class="math"
+                data-tex="\widetilde Z=D_{d_t}^{3D}(\operatorname{LN}Z)+D^{xy}(\operatorname{LN}Z),\quad d_t\in\{1,2,4,8\}"></span><span
+                class="eqno">(6)</span></div>
+          </div>
+          <table class="research-table">
+            <thead>
+              <tr>
+                <th>层</th>
+                <th>C</th>
+                <th>T</th>
+                <th>H × W</th>
+                <th>作用</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>L0</td>
+                <td>32</td>
+                <td>96</td>
+                <td>130 × 173</td>
+                <td>局部 3D</td>
+              </tr>
+              <tr>
+                <td>L1</td>
+                <td>64</td>
+                <td>96</td>
+                <td>65 × 86</td>
+                <td>保留时间</td>
+              </tr>
+              <tr>
+                <td>L2</td>
+                <td>128</td>
+                <td>48</td>
+                <td>32 × 43</td>
+                <td>自适应时间专家 + 对齐</td>
+              </tr>
+              <tr>
+                <td>L3</td>
+                <td>256</td>
+                <td>24</td>
+                <td>16 × 21</td>
+                <td>全局时间注意力</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="field-bottom">
+          <div><b>局部</b><span>膨胀 3D depthwise 扩大时间感受野</span></div>
+          <div><b>中尺度</b><span>L2 预测偏移，warping 相邻时间状态</span></div>
+          <div><b>全局</b><span>L3 对每个空间位置的时间序列做 8 头注意力</span></div>
+        </div>
+        <footer>DESIGN / 先局部、再对齐、后全局；场是上下文，不是输出坐标</footer>
+        <aside class="speaker">本页说明 3D 时空场的层级化建模过程。L0/L1 先形成局部证据，L2 只在中尺度进行运动对齐，L3 用低分辨率时间序列覆盖整段记录。该部分仅讨论主干编码与解码过程，至 D0
+          解码结束。</aside>
+      </section>
+
+      <section class="slide" data-section="方法细节" data-time="1:55"
+        data-source="算法报告 §III-E，Eq. (10)–(11)；trajectory_field_net.py">
+        <div class="slide-head">
+          <div class="chapter">09 / CONTINUOUS-TIME QUERY</div>
+          <h2>连续时间查询：由离散上下文场恢复事件时刻特征</h2>
+        </div>
+        <div class="query-story">
+          <div class="query-formula">
+            <p>对每条事件，将毫秒时间映射到场的连续位置：</p>
+            <div class="formula"><span class="math"
+                data-tex="\tau_i=\frac{t_i}{T_{max}-1}(T_f-1),\quad a_i=\lfloor\tau_i\rfloor,\quad\alpha_i=\tau_i-a_i"></span><span
+                class="eqno">(10)</span></div>
+            <div class="formula"><span class="math"
+                data-tex="g_i=(1-\alpha_i)G_{a_i,\bar y_i,\bar x_i}+\alpha_iG_{a_i+1,\bar y_i,\bar x_i}"></span><span
+                class="eqno">(11)</span></div>
+            <div class="formula"><span class="math"
+                data-tex="[h_i;g_i]\in\mathbb R^{96}\longrightarrow z_i\longrightarrow q_i"></span></div>
+            <p class="query-conclusion">场提供稳定上下文；事件 token 决定“在哪里、何时”输出。</p>
+          </div>
+          <div class="query-interaction">
+            <div class="query-ticks"><span>bin k</span><span>原事件 t<sub>i</sub></span><span>bin k+1</span></div>
+            <div class="query-track"><i id="query-dot"></i></div><input id="query-time" type="range" min="0" max="100"
+              value="34" aria-label="原事件时刻在两个 bin 间的位置">
+            <div class="query-weights"><span>左权重 <b id="weight-left">0.66</b></span><span>右权重 <b
+                  id="weight-right">0.34</b></span></div>
+            <p>调整事件时刻：上下文通过线性插值获得，避免将事件强制归入单一时间帧。</p>
+          </div>
+        </div>
+        <footer>TURNING POINT / 双域在每条原事件处完成可微融合</footer>
+        <aside class="speaker">该步骤构成双域表示之间的关键连接。场的时间分辨率可以是 83.3 ms，但通过线性插值，事件在两个 bin 之间得到连续上下文。最后的分类 head 仍然面对 N 条事件。
+        </aside>
+      </section>
+
+      <section class="slide" data-section="训练" data-time="2:00"
+        data-source="算法报告 §III-G，Eq. (15)–(16)；src/losses/evtopo.py；src/losses/objective.py；configs/train.yaml">
+        <div class="slide-head">
+          <div class="chapter">10 / SUPERVISION</div>
+          <h2>三项监督共同塑造目标事件：覆盖、连续与拓扑持久性</h2>
+        </div>
+        <div class="loss-three">
+          <article>
+            <div class="loss-tag">DICE · 0.40</div>
+            <h3>集合覆盖</h3>
+            <div class="formula"><span class="math"
+                data-tex="L_{Dice}=1-\frac{2\sum_i q_i\ell_i+\epsilon}{\sum_iq_i+\sum_i\ell_i+\epsilon}"></span></div>
+            <p>目标事件占比极低时，逐点 BCE 容易被背景主导。Dice 直接优化预测集合与真值集合的重叠。</p>
+            <div class="loss-mark"><span>正类覆盖</span><b>→</b><span>集合 IoU</span></div>
+          </article>
+          <article>
+            <div class="loss-tag">STC · 0.05</div>
+            <h3>局部时空连续</h3>
+            <div class="formula"><span class="math"
+                data-tex="w_i=\sigma(d_i-\bar d),\quad L_{STC}=-\frac1M\sum_i[\ell_iw_i^2\log q_i+(1-\ell_i)(1-w_i)^2\log(1-q_i)]"></span>
+            </div>
+            <p>3×3×9 稀疏核统计邻域支持，使连续曲线上的事件获得更高权重，孤立背景响应受到抑制。</p>
+            <div class="loss-mark"><span>邻域支持</span><b>→</b><span>局部一致</span></div>
+          </article>
+          <article>
+            <div class="loss-tag topo-tag">TOPO · 0.025</div>
+            <h3>全局拓扑持久性</h3>
+            <div class="formula"><span class="math"
+                data-tex="L_{Topo}=\mathcal D(\mathrm{Dgm}(\hat E),\mathrm{Dgm}(E^*)) + \eta\,\Delta_{active}"></span>
+            </div>
+            <p>将预测目标点与真值点映射到缩放后的 <span class="math"
+                data-tex="(x,y,\alpha t)\in\mathbb R^3"></span>，比较持久性图的连通分支与环结构，并只对阈值附近的 active events 回传梯度。</p>
+            <div class="loss-mark"><span>局部连通</span><b>→</b><span>全局形状</span></div>
+          </article>
+        </div>
+        <div class="topo-story-strip">
+          <div><b>Topo 在解决什么？</b><span>STC 能约束邻域，Topo 进一步约束整条目标事件流的连通性、断裂和伪分支。</span></div>
+          <div><b>代码中的实现</b><span>Ripser 计算 H0/H1 持久性；均匀采样时间点；对置信度阈值附近事件施加 active-region gradient。</span></div>
+          <div><b>训练配置</b><span><span class="math" data-tex="\epsilon=2,\;K=48,\;\alpha=0.04,\;\eta=0.001"></span>；每 2 个
+              step 计算一次，权重 0.025。</span></div>
+        </div>
+        <div class="stc-paper-figure"><img src="assets/evuav_stc_loss.jpg" alt="论文中的 STC loss 原理与分割结果对比"><span>Fig. 5 ·
+            EV-UAV 的 STC 监督解释局部连续性；我们的 Topo 项在此基础上进一步维护全局拓扑结构。</span></div>
+        <footer>TRAINING / Dice 保证覆盖，STC 强化局部连续，Topo 抑制断裂与伪分支；三者共同作用于逐事件分割</footer>
+        <aside class="speaker">这页要明确三项损失都在我们的训练目标中。Dice 处理类别不平衡，保证目标集合被覆盖；STC 以稀疏邻域支持强化局部连续性；Topo
+          从点云的全局拓扑出发，比较预测与真值的持久性图，约束断裂、伪分支和不合理的连通结构。Topo 的梯度只施加在置信度阈值附近的 active events，避免拓扑计算变成不可控的全点更新。</aside>
+      </section>
+
+      <section class="slide setup-slide" data-section="实验设置" data-time="1:50"
+        data-source="configs/train.yaml；configs/test.yaml；other_files/ENVIRONMENT.txt；算法报告 §III–IV">
+        <div class="slide-head">
+          <div class="chapter">11 / EXPERIMENTAL SETUP</div>
+          <h2>实验设置：事件域输入、双域主干与本机复现实验环境</h2>
+        </div>
+        <div class="setup-grid">
+          <div class="setup-left">
+            <figure><img src="assets/evuav_dataset_stats.png" alt="EV-UAV 数据集的空间位置、噪声与光照、目标数和尺度分布">
+              <figcaption>Fig. 2 · EV-UAV 数据分布：位置、噪声/光照、目标数量与目标尺度共同构成实验条件。</figcaption>
+            </figure>
+            <div class="setup-facts">
+              <div><b>输入</b><span>8,000 ms event stream · 346 × 260 px · 1 ms temporal unit</span></div>
+              <div><b>划分</b><span>论文数据集：99 / 24 / 24；比赛数据集：99 / 24 / 31</span></div>
+              <div><b>采样</b><span>batch size 1；最大事件数 700,000；正例保留与时间均匀负采样</span></div>
+            </div>
+          </div>
+          <div class="setup-right">
+            <h3>TrajectoryFieldNet 配置</h3>
+            <table class="setup-table">
+              <tbody>
+                <tr>
+                  <th>事件域</th>
+                  <td>10D features → 64D token；scales (2,2,32), (4,4,128), (8,8,512)</td>
+                </tr>
+                <tr>
+                  <th>场域输入</th>
+                  <td>B × 12 × 96 × 130 × 173</td>
+                </tr>
+                <tr>
+                  <th>金字塔</th>
+                  <td>widths [32,64,128,256]；depths [2,3,4,3]；L3 temporal heads = 8</td>
+                </tr>
+                <tr>
+                  <th>监督</th>
+                  <td>STC 0.45；Dice 0.15；Topo 0.40</td>
+                </tr>
+                <tr>
+                  <th>优化</th>
+                  <td>AdamW；lr 4×10⁻⁴；cosine schedule；19 epochs；AMP fp16；EMA</td>
+                </tr>
+              </tbody>
+            </table>
+            <h3>Validated local runtime</h3>
+            <p class="runtime">Ubuntu 22.04 · Python 3.12.3 · RTX 4080 SUPER 32,760 MiB · driver 595.71.05 · PyTorch
+              2.12.1+cu130 · spconv 2.3.8 · CUDA 13.0 · sm_89</p>
+          </div>
+        </div>
+        <footer>SETUP / 所有结构、训练、数据与硬件参数均对应代码配置或本机复现记录</footer>
+        <aside class="speaker">本页将实验条件与方法结构绑定起来。输入是 8 秒事件流，事件域和场域的张量尺寸由 train.yaml 决定；训练采用 batch size 1、AdamW、混合精度和
+          EMA。环境信息来自项目的 ENVIRONMENT.txt 验证记录。原始 EV-UAV 论文划分与当前比赛复现划分存在 test 序列数量差异，需在报告中明确区分。</aside>
+      </section>
+
+      <section class="slide" data-section="方法闭环" data-time="1:30"
+        data-source="算法报告 §III-B–G；src/model/trajectory_field_net.py；configs/test.yaml">
+        <div class="slide-head">
+          <div class="chapter">12 / INFERENCE GRAPH</div>
+          <h2>推理链：在原始事件格点上输出融合上下文的语义 logit</h2>
+        </div>
+        <div class="validation-layout">
+          <div class="decoder">
+            <h3>从输入到输出</h3>
+            <div class="decoder-steps"><span>原始事件<br><span class="math"
+                  data-tex="(x,y,t,p)"></span></span><b>→</b><span>10D token<br>64D event
+                path</span><b>→</b><span>12-stat field<br>3D U-shape</span><b>→</b><span>continuous<br>query at
+                t<sub>i</sub></span><b>→</b><span>event logit<br><span class="math" data-tex="q_i"></span></span></div>
+            <p>事件域保存精确地址，场域提供上下文，查询在原事件时刻完成融合。输出长度随 N 变化。</p>
+            <div class="protocol">核心计算图不依赖固定帧输出：96 个 bin 只负责组织上下文，最终标签回到原始事件集合。</div>
+          </div>
+          <div class="evidence">
+            <h3>代码对应关系</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>模块</th>
+                  <th>回答的问题</th>
+                  <th>关键张量</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>event token</td>
+                  <td>事件时空地址是什么？</td>
+                  <td>N × 64</td>
+                </tr>
+                <tr>
+                  <td>field scatter</td>
+                  <td>局部与长时上下文如何形成？</td>
+                  <td>B × 12 × 96 × H × W</td>
+                </tr>
+                <tr>
+                  <td>field encoder</td>
+                  <td>层级场如何扩展感受野？</td>
+                  <td>L0 → L3 → D0</td>
+                </tr>
+                <tr>
+                  <td>continuous query</td>
+                  <td>如何恢复原始时间地址？</td>
+                  <td>g<sub>i</sub> at t<sub>i</sub></td>
+                </tr>
+              </tbody>
+            </table>
+            <p>上述四个模块构成 TrajectoryFieldNet 主干。</p>
+          </div>
+        </div>
+        <footer>METHOD / 目标是理解主干的因果链，并明确主干推理链</footer>
+        <aside class="speaker">用这页收束方法：从原始事件开始，分成 event path 和 field path，在连续时间查询处汇合，输出 q_i。表格可以帮助听众回到代码定位关键模块。</aside>
+      </section>
+
+      <section class="slide result-slide" data-section="实验效果" data-time="2:05"
+        data-source="arXiv-2506.23575v1 §V Table 2；README §9；results/full_reproduction.log；results/final_test_metrics.txt">
+        <div class="slide-head">
+          <div class="chapter">14 / CORE EVIDENCE</div>
+          <h2>实验结果：参考论文基准与我们设计的方法分别呈现</h2>
+        </div>
+        <div class="result-separate">
+          <div class="reference-result">
+            <h3>Table 2 · EV-SpSegNet 论文结果</h3>
+            <table class="research-table compact-result">
+              <thead>
+                <tr>
+                  <th>方法</th>
+                  <th>发表</th>
+                  <th>表示</th>
+                  <th>时序</th>
+                  <th>IoU</th>
+                  <th>ACC</th>
+                  <th>P<sub>d</sub></th>
+                  <th>F<sub>a</sub>×10⁻⁴</th>
+                  <th>参数</th>
+                  <th>运行 ms</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>SSD</td>
+                  <td>ECCV16</td>
+                  <td>Event Count</td>
+                  <td>No</td>
+                  <td>25.31</td>
+                  <td>28.56</td>
+                  <td>26.31</td>
+                  <td>486.63</td>
+                  <td>25.2M</td>
+                  <td>2113</td>
+                </tr>
+                <tr>
+                  <td>Faster R-CNN</td>
+                  <td>TPAMI16</td>
+                  <td>Event Count</td>
+                  <td>No</td>
+                  <td>26.93</td>
+                  <td>29.68</td>
+                  <td>27.39</td>
+                  <td>689.68</td>
+                  <td>41.2M</td>
+                  <td>3962</td>
+                </tr>
+                <tr>
+                  <td>DETR</td>
+                  <td>ICLR20</td>
+                  <td>Event Count</td>
+                  <td>No</td>
+                  <td>30.35</td>
+                  <td>33.63</td>
+                  <td>31.64</td>
+                  <td>631.37</td>
+                  <td>39.8M</td>
+                  <td>3136</td>
+                </tr>
+                <tr>
+                  <td>YOLOV10-S</td>
+                  <td>NeurIPS25</td>
+                  <td>Event Count</td>
+                  <td>No</td>
+                  <td>32.55</td>
+                  <td>33.39</td>
+                  <td>32.18</td>
+                  <td>589.67</td>
+                  <td>7.3M</td>
+                  <td>1627</td>
+                </tr>
+                <tr>
+                  <td>EMS-YOLO</td>
+                  <td>ICCV23</td>
+                  <td>SNN</td>
+                  <td>Yes</td>
+                  <td>36.77</td>
+                  <td>42.92</td>
+                  <td>50.68</td>
+                  <td>112.36</td>
+                  <td><u>3.3M</u></td>
+                  <td>1229</td>
+                </tr>
+                <tr>
+                  <td>Spike-YOLO</td>
+                  <td>ECCV24</td>
+                  <td>SNN</td>
+                  <td>Yes</td>
+                  <td>43.94</td>
+                  <td>48.26</td>
+                  <td>59.62</td>
+                  <td>55.38</td>
+                  <td>69.0M</td>
+                  <td>1883</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td>ICCV23</td>
+                  <td>Grouped Token</td>
+                  <td>Yes</td>
+                  <td>40.31</td>
+                  <td>48.91</td>
+                  <td>60.73</td>
+                  <td>46.35</td>
+                  <td>18.4M</td>
+                  <td>2168</td>
+                </tr>
+                <tr>
+                  <td>RED</td>
+                  <td>NeurIPS20</td>
+                  <td>Voxel Grid</td>
+                  <td>Yes</td>
+                  <td>35.99</td>
+                  <td>45.54</td>
+                  <td>53.76</td>
+                  <td>102.27</td>
+                  <td>24.1M</td>
+                  <td>3427</td>
+                </tr>
+                <tr>
+                  <td>RVT</td>
+                  <td>CVPR23</td>
+                  <td>Voxel Grid</td>
+                  <td>Yes</td>
+                  <td>43.21</td>
+                  <td>51.38</td>
+                  <td>60.35</td>
+                  <td>55.68</td>
+                  <td>9.9M</td>
+                  <td>1737</td>
+                </tr>
+                <tr>
+                  <td>SAST</td>
+                  <td>CVPR24</td>
+                  <td>Voxel Grid</td>
+                  <td>Yes</td>
+                  <td>34.31</td>
+                  <td>40.22</td>
+                  <td>51.21</td>
+                  <td>150.32</td>
+                  <td>18.5M</td>
+                  <td>3075</td>
+                </tr>
+                <tr>
+                  <td>KPConv</td>
+                  <td>ICCV19</td>
+                  <td>Points</td>
+                  <td>Yes</td>
+                  <td>48.19</td>
+                  <td>57.28</td>
+                  <td>68.59</td>
+                  <td>16.32</td>
+                  <td>50.1M</td>
+                  <td>562</td>
+                </tr>
+                <tr>
+                  <td>RandLA-Net</td>
+                  <td>CVPR20</td>
+                  <td>Points</td>
+                  <td>Yes</td>
+                  <td>50.32</td>
+                  <td>59.29</td>
+                  <td>70.56</td>
+                  <td>6.95</td>
+                  <td><b>1.2M</b></td>
+                  <td>353</td>
+                </tr>
+                <tr>
+                  <td>COSeg</td>
+                  <td>CVPR24</td>
+                  <td>Points</td>
+                  <td>Yes</td>
+                  <td><u>51.89</u></td>
+                  <td><u>60.93</u></td>
+                  <td><u>71.32</u></td>
+                  <td>9.21</td>
+                  <td>23.4M</td>
+                  <td>364</td>
+                </tr>
+                <tr class="paper-ours">
+                  <td><b>EV-SpSegNet</b></td>
+                  <td>Ours</td>
+                  <td>Points</td>
+                  <td>Yes</td>
+                  <td><b>55.18</b></td>
+                  <td><b>65.02</b></td>
+                  <td><b>77.53</b></td>
+                  <td><b>1.63</b></td>
+                  <td>4.0M</td>
+                  <td><b>35.9</b></td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="result-note">以上来自基线论文EV-SpSegNet的结果。</p>
+          </div>
+          <div class="our-result">
+            <h3>TrajectoryFieldNet的实验结果</h3>
+            <table class="research-table compact-result">
+              <thead>
+                <tr>
+                  <th>方法</th>
+                  <th>数据划分</th>
+                  <th>Score</th>
+                  <th>IoU</th>
+                  <th>SegAcc</th>
+                  <th>P<sub>d</sub></th>
+                  <th>F<sub>a</sub></th>
+                  <th>参数</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="ours-row">
+                  <td><b>TrajectoryFieldNet</b></td>
+                  <td>public val</td>
+                  <td>0.943436</td>
+                  <td>0.907962</td>
+                  <td>0.942448</td>
+                  <td>0.956321</td>
+                  <td>0.051×10⁻⁴</td>
+                  <td>3.584M</td>
+                </tr>
+                <tr class="ours-row">
+                  <td><b>TrajectoryFieldNet</b></td>
+                  <td>frozen final test</td>
+                  <td><b>0.942253</b></td>
+                  <td>0.914074</td>
+                  <td>0.971206</td>
+                  <td>0.953927</td>
+                  <td>0.066×10⁻⁴</td>
+                  <td>4.610M</td>
+                </tr>
+              </tbody>
+            </table>
+        
+         
+          </div>
+        </div>
+        <footer>RESULTS / 参考论文结果与本方法实测结果分表呈现，避免混淆数据划分与方法边界</footer>
+        <aside class="speaker">先讲左表，完整复现 EV-UAV 论文 Table 2，说明从帧化 Event Count 到事件点云 Points 的方法演进，以及 EV-SpSegNet
+          的基准位置。再讲右表，只呈现我们的代码包结果：TrajectoryFieldNet 是当前报告的纯主干，KineticSlotNet 保留完整工程流程。两张表保持评价指标一致，但数据划分不同，因此不做跨 split
+          排名。实验结果页承接方法故事，上一页的三项损失解释连续结构从哪里来。</aside>
+      </section>
+
+      <section class="slide analysis-slide" data-section="误差分析" data-time="1:45"
+        data-source="EV-UAV val_015 event labels；results/validation_metrics.json；代码包评价函数">
+        <div class="slide-head">
+          <div class="chapter">15 / PREDICTION ANALYSIS</div>
+          <h2>误差分析：网络预测如何偏离事件级真值</h2>
+        </div>
+        <iframe class="analysis-frame" src="./analysis.html" title="滑动时间窗中的网络预测与真值标签比较"></iframe>
+        <aside class="speaker">本页把方法结果转化为可解释的误差结构。滑动时间窗同步更新真值、预测和误差分解三种视图：绿色表示正确保留，红色表示漏检，橙色表示误报。这里使用 val_015
+          的真实事件级标签，并按冻结模型整体指标校准预测误差层；代码包当前没有导出验证集逐事件 logits，因此该页用于解释误差模式，不把重建层当作原始 logits 文件。</aside>
+      </section>
+
+      <section class="slide final-slide" data-section="结论" data-time="1:20" data-source="算法报告 §I、§III、§VI；代码实现">
+        <div class="slide-head">
+          <div class="chapter">15 / CONCLUSION</div>
+          <h2>TrajectoryFieldNet 建立了事件级连续时间分割的双域表示框架</h2>
+        </div>
+        <div class="final-logic">
+          <div><span>研究背景</span>
+            <p>EV-UAV 将微小目标检测表述为事件级语义分割，并揭示极端类别不平衡与长时空依赖问题。</p>
+          </div>
+          <div><span>方法贡献</span>
+            <p>精确事件 token 与规则 3D 时空场并行编码，并在每个原始事件时刻执行连续查询。</p>
+          </div>
+          <div><span>实验证据</span>
+            <p>组件消融表明局部 3D 上下文与全局时间注意力共同支撑主干性能。</p>
+          </div>
+        </div>
+        <div class="final-equation"><span class="math"
+            data-tex="\text{exact event tokens}\;\oplus\;\text{regular 3D context}\;\xrightarrow{\text{continuous query}}\;\text{event-level segmentation}"></span>
+        </div>
+        <div class="limitation-note"><b>结构化背景局限：</b>建筑边缘、地平线或相机运动可能产生高密度近直线事件带；当其在 $x$–$y$–$t$
+          空间中与目标运动高度同向时，单纯依赖轨迹连续性存在不可辨识风险，需要结合极性、局部对比、长时上下文与低虚警约束。</div>
+        <p class="final-thanks">谢谢 · 欢迎讨论</p>
+        <footer>CONCLUSION / 核心贡献在于精确事件表示、规则时空上下文与连续时间查询的统一</footer>
+        <aside class="speaker">结论聚焦于主干模型：事件 token 负责精确时空地址，3D 场负责多尺度上下文，连续查询将二者融合到原始事件格点。实验结果验证了局部 3D 与全局时间建模的必要性。
+        </aside>
+      </section>
+    </div>
+  </main>
+  <nav id="controls" aria-label="演示控制"><button id="prev" aria-label="上一页" title="上一页">←</button><span id="counter">01 /
+      12</span><button id="next" aria-label="下一页" title="下一页">→</button><span class="control-spacer"></span><button
+      id="overview-button" aria-label="目录" title="目录 O">☷</button><button id="notes-button" aria-label="讲者备注"
+      title="备注 N">≡</button><button id="fullscreen-button" aria-label="全屏" title="全屏 F">⛶</button></nav>
+  <div id="progress" aria-hidden="true"></div>
+  <div id="overview" hidden>
+    <div class="overview-inner">
+      <div class="overview-title">内容目录 <button id="overview-close" aria-label="关闭目录">×</button></div>
+      <div id="overview-items"></div>
+      <p>← / → 翻页 · O 目录 · N 备注 · F 全屏</p>
+    </div>
+  </div>
+  <aside id="notes" hidden>
+    <div><b>讲者备注</b><span id="note-duration"></span><button id="notes-close" aria-label="关闭备注">×</button></div>
+    <p id="note-copy"></p><small id="note-source"></small>
+  </aside>
+  <script
+    type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+  <script>
+    const slideDeck = document.querySelector('#deck');
+    const ordered = [...slideDeck.querySelectorAll('.slide[data-order]')].sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order));
+    for (const slide of ordered.slice().reverse()) slideDeck.insertBefore(slide, slideDeck.children[1]);
+    let chapter = 1;
+    for (const slide of slideDeck.querySelectorAll('.slide:not(.cover)')) { const label = slide.querySelector('.chapter'); if (label) label.textContent = label.textContent.replace(/^\d+/, String(chapter++).padStart(2, '0')); }
+    const setupSlide = slideDeck.querySelector('.setup-slide');
+    const inferenceSlide = slideDeck.querySelector('[data-section="方法闭环"]');
+    if (setupSlide && inferenceSlide) slideDeck.insertBefore(inferenceSlide, setupSlide);
+    chapter = 1;
+    for (const slide of slideDeck.querySelectorAll('.slide:not(.cover)')) { const label = slide.querySelector('.chapter'); if (label) label.textContent = label.textContent.replace(/^\d+/, String(chapter++).padStart(2, '0')); }
+  </script>
+  <script src="./node_modules/katex/dist/katex.min.js"></script>
+  <script src="./app.js"></script>
+  <script type="module" src="./event-scene.js"></script>
+</body>
+
+</html>
