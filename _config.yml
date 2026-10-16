@@ -1,0 +1,4 @@
+# Force GitHub Pages (Jekyll) to publish node_modules,
+# which is excluded by default. The page loads three.js / KaTeX from there.
+include:
+  - node_modules
