@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./node_modules/katex/dist/katex.min.css">
+  <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./style.css">
   <title>TrajectoryFieldNet · Research Seminar</title>
 </head>
@@ -873,7 +873,7 @@
     <p id="note-copy"></p><small id="note-source"></small>
   </aside>
   <script
-    type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+    type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
   <script>
     const slideDeck = document.querySelector('#deck');
     const ordered = [...slideDeck.querySelectorAll('.slide[data-order]')].sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order));
@@ -886,7 +886,7 @@
     chapter = 1;
     for (const slide of slideDeck.querySelectorAll('.slide:not(.cover)')) { const label = slide.querySelector('.chapter'); if (label) label.textContent = label.textContent.replace(/^\d+/, String(chapter++).padStart(2, '0')); }
   </script>
-  <script src="./node_modules/katex/dist/katex.min.js"></script>
+  <script src="./vendor/katex/katex.min.js"></script>
   <script src="./app.js"></script>
   <script type="module" src="./event-scene.js"></script>
 </body>
