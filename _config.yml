@@ -1,4 +1,2 @@
-# Force GitHub Pages (Jekyll) to publish node_modules,
-# which is excluded by default. The page loads three.js / KaTeX from there.
-include:
-  - node_modules
+# GitHub Pages config
+# Three.js and KaTeX are loaded locally from ./vendor/, no node_modules needed.

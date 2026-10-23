@@ -109,7 +109,7 @@ try {
   const response = await fetch('./assets/val015_events.json');
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const {events} = await response.json();
-  const cover = sceneFor(coverHost,events,false);
+  const cover = coverHost ? sceneFor(coverHost,events,false) : null;
   const demo = sceneFor(demoHost,events,true);
   playButton.textContent = 'Ⅱ';
   playButton.setAttribute('aria-label','暂停时间窗');
@@ -140,7 +140,7 @@ try {
   function frame(now) {
     requestAnimationFrame(frame);
     const active = document.querySelector('.slide.active');
-    if (active?.contains(coverHost)) cover.render();
+    if (cover && active?.contains(coverHost)) cover.render();
     else if (active?.contains(demoHost)) {
       if (playing && lastFrame) {
         slider.value = String((Number(slider.value) + (now - lastFrame) * .6) % 8000);
@@ -152,6 +152,6 @@ try {
   }
   requestAnimationFrame(frame);
 } catch (error) {
-  for (const host of [coverHost,demoHost]) host.textContent = `三维事件流未载入：${error.message}`;
+  for (const host of [coverHost,demoHost]) if (host) host.textContent = `三维事件流未载入：${error.message}`;
   console.error(error);
 }

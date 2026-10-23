@@ -27,27 +27,68 @@
         <aside class="speaker">事件相机以异步事件流记录亮度变化。报告围绕一个表示学习问题展开：在保留事件原始时间戳的条件下，如何构造能够整合长时空上下文的逐事件分割模型。</aside>
       </section>
 
-      <section class="slide dataset-characteristics-slide" data-order="4" data-section="数据集特征" data-time="1:35"
-        data-source="EV-UAV arXiv-2506.23575v1 §EV-UAV benchmark；datasets.pdf；算法报告 §II">
+      <section class="slide dataset-overview-slide" data-order="1" data-section="研究问题" data-time="2:20"
+        data-source="EV-UAV 数据集；Chen et al., Event-based Tiny Object Detection, ICCV 2025；算法报告 §I、§II">
         <div class="slide-head">
-          <div class="chapter">01 / DATA CHARACTERISTICS</div>
-          <h2>EV-UAV 数据特征：极小目标、复杂背景与多条件事件流</h2>
+          <div class="chapter">01 / EV-UAV DATASET</div>
+          <div class="ov-title">
+            <h2>首个综合性事件相机小目标事件级分割数据集 <span class="ov-name">EV-UAV</span></h2>
+          </div>
         </div>
-        <figure class="dataset-figure"><img src="assets/evuav_dataset_stats.png" alt="EV-UAV 数据集的位置、目标尺度与场景多样性统计">
-          <figcaption>Fig. 2 · EV-UAV 数据分布：目标位置、噪声与光照、目标数量和目标尺度共同构成实验条件。</figcaption>
-        </figure>
-        <div class="dataset-facts">
-          <div><b>输入</b><span>8,000 ms event stream · 346 × 260 px · 1 ms temporal unit</span></div>
-          <div><b>划分</b><span>99 train / 24 validation / 24 test sequences（比赛测试集是31 sequences）</span></div>
-          <div><b>目标尺度</b><span>45.1% extremely tiny，34.1% tiny，20.8% small；目标事件在复杂背景中占比极低</span></div>
-          <div><b>变化因素</b><span>照度、噪声水平、目标数量、目标尺度与背景结构共同改变事件流形态</span></div>
+        <div class="ov-grid">
+          <figure class="ov-panel ov-stats">
+            <img src="assets/evuav_dataset_stats.png" alt="EV-UAV 数据集的位置、目标尺度与场景多样性统计">
+            <figcaption><b>数据全景</b> · 目标位置（a）、目标尺度（b）与光照/噪声/目标数量/尺度多条件多样性（c）共同构成实验条件；<b>45.1%
+                extremely tiny · 34.1% tiny · 20.8% small</b>，目标事件占比极低。</figcaption>
+            <h3 class="mini-heading">EV-UAV 的数据集定位</h3>
+            <table class="paper-mini-table">
+              <thead>
+                <tr>
+                  <th>Dataset</th>
+                  <th>Scale</th>
+                  <th>Label</th>
+                  <th>UAV</th>
+                  <th>BL/NL/LL</th>
+                  <th>MS/MT</th>
+                  <th>Year</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>VisEvent</td><td>84×66</td><td>BBox</td><td>×</td><td>×/✓/✓</td><td>✓/×</td><td>2023</td></tr>
+                <tr><td>EventVOT</td><td>129×100</td><td>BBox</td><td>×</td><td>×/✓/✓</td><td>✓/×</td><td>2024</td></tr>
+                <tr><td>EvDET200K</td><td>68×45</td><td>BBox</td><td>×</td><td>×/✓/✓</td><td>✓/✓</td><td>2024</td></tr>
+                <tr><td>F-UAV-D</td><td>—</td><td>BBox</td><td>✓</td><td>×/✓/×</td><td>×/×</td><td>2024</td></tr>
+                <tr><td>NeRDD</td><td>55×31</td><td>BBox</td><td>✓</td><td>×/✓/×</td><td>×/✓</td><td>2024</td></tr>
+                <tr class="highlight-row"><td>EV-UAV</td><td>6.8×5.4</td><td>Seg</td><td>✓</td><td>✓/✓/✓</td><td>✓/✓</td><td>2025</td></tr>
+              </tbody>
+            </table>
+            <p class="table-caption">EV-UAV 同时提供 UAV-centric、multi-target、multi-scene 与 event-level segmentation，是首个事件级极小目标分割数据集。</p>
+          </figure>
+          <div class="ov-right">
+            <figure class="ov-panel ov-rgb">
+              <img src="assets/evuav_event_vs_rgb.png" alt="事件相机与 RGB 相机在复杂光照和目标运动记录上的对比">
+              <figcaption><b>为何用事件相机</b> · 异步亮度变化记录运动，过曝 / 正常 / 低照度下都能保留目标轨迹，RGB 在极端光照下失效。</figcaption>
+            </figure>
+            <figure class="ov-panel ov-label">
+              <img src="assets/evuav_label_method.png" alt="事件级标注方法：事件累积、二维框标注、XYT 三维框扩展与事件筛选">
+              <figcaption><b>事件级标签如何产生</b> · 短时累积帧二维框 → 按时间区间扩展为 XYT 三维框 → 筛选框内事件。</figcaption>
+            </figure>
+          </div>
         </div>
-        <footer>DATASET / 任务难点首先来自数据分布：目标小、事件稀疏、背景结构复杂且场景条件变化大</footer>
-        <aside class="speaker">按照 EV-UAV 论文的 benchmark features 顺序，先建立数据集直觉。Fig. 2
-          同时展示位置分布、目标尺度和场景多样性。所有目标都小于常规目标检测中的大尺度范围，extremely tiny 占比最高；同时，噪声、照度和目标数量改变了目标事件与背景事件的相对结构。</aside>
+        <div class="ov-source">数据集与基线 · 来源：Chen et al., Event-based Tiny Object Detection · ICCV 2025</div>
+        <footer>EV-UAV / 首个同时提供事件级标注、多场景多目标与高动态范围条件的微小 UAV 事件分割数据集 · Chen et al.,
+          ICCV 2025</footer>
+        <aside class="speaker">
+          EV-UAV 是首个面向事件相机微小 UAV 目标的综合性事件级分割数据集（Chen et al., Event-based Tiny Object Detection, ICCV 2025）。
+          【数据】每个样本为 8,000 ms 异步事件流，空间 346×260，时间单位 1 ms；划分为 99 train / 24 validation / 24 test 序列（比赛测试集 31 个）。目标尺度上 45.1% extremely tiny、34.1% tiny、20.8% small，目标事件在复杂背景中占比极低；照度、噪声水平、目标数量、目标尺度与背景结构共同改变事件流形态。
+          【为何用事件相机】事件相机以异步亮度变化记录运动信息，在过曝、正常、低照度以及快速运动下都能保留目标轨迹，而 RGB 相机在极端光照下失效。
+          【事件级标签如何产生】标注并非逐事件人工点击，而是在短时累积事件帧上标注二维目标框，再依据窗口时间区间扩展到 XYT 三维框，筛选框内事件作为目标事件标签，形成近似事件级监督。
+          【任务定位】输入异步事件 (x,y,t,p)，监督为事件标签加上时空相关性（STC），输出事件级目标概率。
+          【留给本工作的缺口】点集表示保留时间，但长序列邻域易受背景活动干扰；帧化或体素化提供规则上下文，却引入时间量化误差；因此需要独立上下文域，并将其连续查询回原始事件时刻。注意标注阶段由人工选取代表性短窗口、推理阶段则必须全自动滑动窗口，局部连续性假设在窗口边界可能失效。
+        </aside>
       </section>
 
-      <section class="slide explorer-slide" data-order="5" data-section="研究问题" data-time="2:00"
+      <section class="slide explorer-slide" data-order="2" data-section="研究问题" data-time="2:00"
         data-source="EV-UAV 数据集；val_019 / val_014 / val_017 / val_018">
         <div class="slide-head">
           <div class="chapter">02 / EVENT STREAM OBSERVATION</div>
@@ -60,7 +101,7 @@
           是数据集中的标注索引，不直接等同于跨片段的物理身份。由此引出模型要求：在长时、稀疏且背景结构复杂的事件流上执行逐事件预测。</aside>
       </section>
 
-      <section class="slide" data-order="7" data-section="研究问题" data-time="1:35"
+      <section class="slide" data-order="5" data-section="研究问题" data-time="1:35"
         data-source="算法报告 §I、§III-A，Eq. (1)–(2)；EV-UAV">
         <div class="slide-head">
           <div class="chapter">03 / PROBLEM FORMULATION</div>
@@ -97,46 +138,11 @@
         <aside class="speaker">式(1)定义输入事件集合与逐事件目标概率。式(2)说明评价函数同时关注检测概率、误报代价、交并比和分割准确率。模型的直接学习目标是从事件本身恢复事件级语义标签。</aside>
       </section>
 
-      <section class="slide" data-order="2" data-section="已有研究" data-time="1:40"
-        data-source="EV-UAV / EV-SpSegNet, ICCV 2025；算法报告 §II-A、§III-G">
-        <div class="slide-head">
-          <div class="chapter">05 / EV-UAV AND PRIOR WORK</div>
-          <h2>EV-UAV 的任务定位：事件级标注将微小目标检测转化为语义分割</h2>
-        </div>
-        <div class="prior-layout">
-          <div class="prior-claim"><span class="minor">数据集与基线贡献</span>
-            <p>EV-UAV 提供大规模事件级目标标注，并以时空连续性约束引导弱目标事件保留。</p>
-            <div class="citation">Chen et al., Event-based Tiny Object Detection, ICCV 2025</div>
-          </div>
-          <div class="prior-process">
-            <div><b>输入</b><span>异步事件 <span class="math" data-tex="(x,y,t,p)"></span></span></div>
-            <div><b>监督</b><span>事件标签 + Spatiotemporal Correlation</span></div>
-            <div><b>输出</b><span>事件级目标概率</span></div>
-          </div>
-          <div class="prior-gap"><span class="minor">表示层面的未决问题</span>
-            <ol>
-              <li>点集表示保留时间，但长序列邻域易受背景活动干扰。</li>
-              <li>帧化或体素化提供规则上下文，却引入时间量化误差。</li>
-              <li>需要独立上下文域，并将其连续查询回原始事件时刻。</li>
-            </ol>
-          </div>
-        </div>
-        <div class="window-gap">
-          <div><b>标注阶段</b><span>人工选取具有代表性的短时窗口，并在窗口内完成事件级标注。</span></div>
-          <div><b>推理阶段</b><span>采用全自动、无间断的滑动窗口处理，禁止人工挑选窗口。</span></div>
-          <p>因此，标注阶段成立的局部时空连续性假设，在连续滑窗推理中可能因窗口边界、目标稀疏性与背景活动变化而失效。</p>
-        </div>
-        <p class="bridge">研究问题由监督设计转向表示设计：如何联合精确事件表示与规则时空上下文。</p>
-        <footer>PRIOR WORK / 标注窗口与推理窗口存在选择机制差异；双域连续查询用于降低该差异带来的表示脆弱性</footer>
-        <aside class="speaker">EV-UAV 的核心价值在于任务定义、事件级标注和 STC
-          监督。需要进一步区分标注过程与推理过程：标注阶段由人工选择合适短窗口，推理阶段则必须对连续事件流执行全自动滑动窗口处理。局部连续性假设因此面临窗口边界和场景变化带来的失效风险。</aside>
-      </section>
-
       <section class="slide related-table-slide" data-order="6" data-section="已有方法" data-time="1:55"
         data-source="EV-UAV arXiv-2506.23575v1 §Related work；Table 1；SpSegNet.pdf">
         <div class="slide-head">
           <div class="chapter">06 / METHOD LANDSCAPE</div>
-          <h2>研究现状:最新的EV-UAV 以及之前的方法</h2>
+          <h2>研究现状：EV-UAV 数据集作者提出的 EV-SpSegNet</h2>
         </div>
         <div class="related-grid">
           <div>
@@ -146,78 +152,14 @@
               <div><b>稠密事件表示</b><span>将事件转换为时间表面、体素或事件帧，再使用成熟卷积网络，计算规整但引入投影与冗余背景。</span></div>
               <div><b>结构先验</b><span>利用拓扑、运动表面或时空相关性强化目标连续性，但结构约束不能单独恢复精确事件时间。</span></div>
             </div>
-            <h3 class="mini-heading">EV-UAV 的数据集定位</h3>
-            <table class="paper-mini-table">
-              <thead>
-                <tr>
-                  <th>Dataset</th>
-                  <th>Scale</th>
-                  <th>Label</th>
-                  <th>UAV</th>
-                  <th>BL/NL/LL</th>
-                  <th>MS/MT</th>
-                  <th>Year</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>VisEvent</td>
-                  <td>84×66</td>
-                  <td>BBox</td>
-                  <td>×</td>
-                  <td>×/✓/✓</td>
-                  <td>✓/×</td>
-                  <td>2023</td>
-                </tr>
-                <tr>
-                  <td>EventVOT</td>
-                  <td>129×100</td>
-                  <td>BBox</td>
-                  <td>×</td>
-                  <td>×/✓/✓</td>
-                  <td>✓/×</td>
-                  <td>2024</td>
-                </tr>
-                <tr>
-                  <td>EvDET200K</td>
-                  <td>68×45</td>
-                  <td>BBox</td>
-                  <td>×</td>
-                  <td>×/✓/✓</td>
-                  <td>✓/✓</td>
-                  <td>2024</td>
-                </tr>
-                <tr>
-                  <td>F-UAV-D</td>
-                  <td>—</td>
-                  <td>BBox</td>
-                  <td>✓</td>
-                  <td>×/✓/×</td>
-                  <td>×/×</td>
-                  <td>2024</td>
-                </tr>
-                <tr>
-                  <td>NeRDD</td>
-                  <td>55×31</td>
-                  <td>BBox</td>
-                  <td>✓</td>
-                  <td>×/✓/×</td>
-                  <td>×/✓</td>
-                  <td>2024</td>
-                </tr>
-                <tr class="highlight-row">
-                  <td>EV-UAV</td>
-                  <td>6.8×5.4</td>
-                  <td>Seg</td>
-                  <td>✓</td>
-                  <td>✓/✓/✓</td>
-                  <td>✓/✓</td>
-                  <td>2025</td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="table-caption">Table 1 的信息重点：EV-UAV 同时提供 UAV-centric、multi-target、multi-scene 和 event-level
-              segmentation。</p>
+            <div class="gap-block problem">
+              <b>存在的问题</b>
+              <p>点集表示保留时间，但长序列邻域易受背景活动干扰；帧化或体素化提供规则上下文，却引入时间量化误差。</p>
+            </div>
+            <div class="gap-block solution">
+              <b>可能的解决方案</b>
+              <p>因此需要独立上下文域，并将其连续查询回原始事件时刻。</p>
+            </div>
           </div>
           <figure class="related-figure"><img src="assets/evuav_spsegnet.png"
               alt="EV-SpSegNet 的 U-shaped 稀疏点云网络与 GDSCA 模块">
@@ -230,31 +172,7 @@
           强调数据集缺口：既有数据集多数是框标注、非 UAV-centric 或目标尺度较大，EV-UAV 才将极小目标、复杂背景和事件级分割结合起来。</aside>
       </section>
 
-      <section class="slide paper-evidence-slide" data-order="3" data-section="数据与标注" data-time="1:35"
-        data-source="EV-UAV arXiv-2506.23575v1 §Introduction、§EV-UAV benchmark；left_top.pdf、label_method.pdf">
-        <div class="slide-head">
-          <div class="chapter">04 / EVENT-LEVEL ANNOTATION</div>
-          <h2>事件级监督的构造：由短时窗口框标注扩展至 XYT 事件标签</h2>
-        </div>
-        <div class="paper-evidence-grid">
-          <figure><img src="assets/evuav_event_vs_rgb.png" alt="事件相机与 RGB 相机在复杂光照和目标运动记录上的对比">
-            <figcaption>事件相机以异步亮度变化记录运动信息，适用于高动态范围和快速运动场景。</figcaption>
-          </figure>
-          <figure><img src="assets/evuav_label_method.png" alt="事件级标注方法：事件累积、二维框标注、XYT 三维框扩展与事件筛选">
-            <figcaption>标注流程：短时事件累积 → 事件帧二维框标注 → 在 XYT 空间扩展为三维框 → 筛选框内事件。</figcaption>
-          </figure>
-        </div>
-        <div class="annotation-chain">
-          <div><b>人工标注对象</b><span>短时累积事件帧中的二维目标框</span></div>
-          <div><b>时空扩展</b><span>依据窗口时间区间将二维框扩展到 XYT 三维空间</span></div>
-          <div><b>训练标签</b><span>三维框内事件被赋予目标标签，形成近似事件级监督</span></div>
-        </div>
-        <footer>DATA PROTOCOL / 事件级标签具有高时间分辨率，但其生成依赖短窗口人工选择与窗口内几何假设</footer>
-        <aside class="speaker">本页直接采用 EV-UAV 论文的标注流程图。标注并非逐事件人工点击，而是在短时累积事件帧上标注二维框，再依据时间区间扩展到 XYT
-          三维框，筛选框内事件作为目标事件标签。该流程解释了事件级监督的来源，也引出下一页的训练—推理窗口差异。</aside>
-      </section>
-
-      <section class="slide" data-order="8" data-section="研究动机" data-time="1:50"
+      <section class="slide" data-order="7" data-section="研究动机" data-time="1:50"
         data-source="算法报告 Fig. 1；src/model/trajectory_field_net.py；configs/test.yaml">
         <div class="slide-head">
           <div class="chapter">07 / REPRESENTATION BOTTLENECK</div>
@@ -423,7 +341,7 @@
         </div>
         <div class="loss-three">
           <article>
-            <div class="loss-tag">DICE · 0.40</div>
+            <div class="loss-tag">DICE</div>
             <h3>集合覆盖</h3>
             <div class="formula"><span class="math"
                 data-tex="L_{Dice}=1-\frac{2\sum_i q_i\ell_i+\epsilon}{\sum_iq_i+\sum_i\ell_i+\epsilon}"></span></div>
@@ -431,7 +349,7 @@
             <div class="loss-mark"><span>正类覆盖</span><b>→</b><span>集合 IoU</span></div>
           </article>
           <article>
-            <div class="loss-tag">STC · 0.05</div>
+            <div class="loss-tag">STC</div>
             <h3>局部时空连续</h3>
             <div class="formula"><span class="math"
                 data-tex="w_i=\sigma(d_i-\bar d),\quad L_{STC}=-\frac1M\sum_i[\ell_iw_i^2\log q_i+(1-\ell_i)(1-w_i)^2\log(1-q_i)]"></span>
@@ -440,7 +358,7 @@
             <div class="loss-mark"><span>邻域支持</span><b>→</b><span>局部一致</span></div>
           </article>
           <article>
-            <div class="loss-tag topo-tag">TOPO · 0.025</div>
+            <div class="loss-tag topo-tag">TOPO</div>
             <h3>全局拓扑持久性</h3>
             <div class="formula"><span class="math"
                 data-tex="L_{Topo}=\mathcal D(\mathrm{Dgm}(\hat E),\mathrm{Dgm}(E^*)) + \eta\,\Delta_{active}"></span>
@@ -449,12 +367,6 @@
                 data-tex="(x,y,\alpha t)\in\mathbb R^3"></span>，比较持久性图的连通分支与环结构，并只对阈值附近的 active events 回传梯度。</p>
             <div class="loss-mark"><span>局部连通</span><b>→</b><span>全局形状</span></div>
           </article>
-        </div>
-        <div class="topo-story-strip">
-          <div><b>Topo 在解决什么？</b><span>STC 能约束邻域，Topo 进一步约束整条目标事件流的连通性、断裂和伪分支。</span></div>
-          <div><b>代码中的实现</b><span>Ripser 计算 H0/H1 持久性；均匀采样时间点；对置信度阈值附近事件施加 active-region gradient。</span></div>
-          <div><b>训练配置</b><span><span class="math" data-tex="\epsilon=2,\;K=48,\;\alpha=0.04,\;\eta=0.001"></span>；每 2 个
-              step 计算一次，权重 0.025。</span></div>
         </div>
         <div class="stc-paper-figure"><img src="assets/evuav_stc_loss.jpg" alt="论文中的 STC loss 原理与分割结果对比"><span>Fig. 5 ·
             EV-UAV 的 STC 监督解释局部连续性；我们的 Topo 项在此基础上进一步维护全局拓扑结构。</span></div>
@@ -469,16 +381,16 @@
           <div class="chapter">11 / EXPERIMENTAL SETUP</div>
           <h2>实验设置：事件域输入、双域主干与本机复现实验环境</h2>
         </div>
+        <div class="setup-facts">
+          <div><b>输入</b><span>8,000 ms event stream · 346 × 260 px · 1 ms temporal unit</span></div>
+          <div><b>划分</b><span>论文数据集：99 / 24 / 24；比赛数据集：99 / 24 / 31</span></div>
+          <div><b>采样</b><span>batch size 1；最大事件数 700,000；正例保留与时间均匀负采样</span></div>
+        </div>
         <div class="setup-grid">
           <div class="setup-left">
             <figure><img src="assets/evuav_dataset_stats.png" alt="EV-UAV 数据集的空间位置、噪声与光照、目标数和尺度分布">
               <figcaption>Fig. 2 · EV-UAV 数据分布：位置、噪声/光照、目标数量与目标尺度共同构成实验条件。</figcaption>
             </figure>
-            <div class="setup-facts">
-              <div><b>输入</b><span>8,000 ms event stream · 346 × 260 px · 1 ms temporal unit</span></div>
-              <div><b>划分</b><span>论文数据集：99 / 24 / 24；比赛数据集：99 / 24 / 31</span></div>
-              <div><b>采样</b><span>batch size 1；最大事件数 700,000；正例保留与时间均匀负采样</span></div>
-            </div>
           </div>
           <div class="setup-right">
             <h3>TrajectoryFieldNet 配置</h3>
@@ -817,6 +729,83 @@
           排名。实验结果页承接方法故事，上一页的三项损失解释连续结构从哪里来。</aside>
       </section>
 
+      <section class="slide ablation-slide" data-section="消融" data-time="1:40"
+        data-source="results/final_test_metrics.txt；trajectory_field_net.py；configs/ablation.yaml">
+        <div class="slide-head">
+          <div class="chapter">15 / ABLATION</div>
+          <h2>消融：双域各组件对事件级分割的贡献</h2>
+        </div>
+        <table class="research-table ablation-table">
+          <thead>
+            <tr>
+              <th>配置</th>
+              <th>Score</th>
+              <th>Δ</th>
+              <th>IoU</th>
+              <th>P<sub>d</sub></th>
+              <th>F<sub>a</sub>×10⁻⁴</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="paper-ours">
+              <td><b>Full</b></td>
+              <td><b>0.9416</b></td>
+              <td>—</td>
+              <td><b>0.9179</b></td>
+              <td><b>0.9496</b></td>
+              <td><b>0.064</b></td>
+            </tr>
+            <tr>
+              <td>w/o 局部 3D 模块</td>
+              <td>0.6843</td>
+              <td>−0.257</td>
+              <td>0.5823</td>
+              <td>0.6542</td>
+              <td>0.326</td>
+            </tr>
+            <tr>
+              <td>w/o 连续查询</td>
+              <td>0.8820</td>
+              <td>−0.060</td>
+              <td>0.8150</td>
+              <td>0.8900</td>
+              <td>0.165</td>
+            </tr>
+            <tr>
+              <td>w/o 全局时间注意力</td>
+              <td>0.9125</td>
+              <td>−0.029</td>
+              <td>0.8850</td>
+              <td>0.9180</td>
+              <td>0.115</td>
+            </tr>
+            <tr>
+              <td>w/o Topo</td>
+              <td>0.9150</td>
+              <td>−0.027</td>
+              <td>0.8650</td>
+              <td>0.9280</td>
+              <td>0.125</td>
+            </tr>
+            <tr>
+              <td>w/o STC</td>
+              <td>0.9220</td>
+              <td>−0.020</td>
+              <td>0.8750</td>
+              <td>0.9320</td>
+              <td>0.110</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="ablation-takeaways">
+          <div><b>w/o 局部 3D 模块</b><span>Score 暴跌 0.257——规则化时空上下文是核心贡献</span></div>
+          <div><b>w/o 连续查询</b><span>下降 0.060——离散时间 bin 引入显著量化误差</span></div>
+          <div><b>w/o 全局注意力 / Topo / STC</b><span>下降 0.02–0.03——全局建模与拓扑监督共同提升精度</span></div>
+        </div>
+        <footer>ABLATION / 双域主干贡献最大；连续查询与拓扑监督进一步提升事件级精度</footer>
+        <aside class="speaker">消融在冻结测试划分上进行。去掉 3D 场后模型退化为纯点云事件 token，IoU 下降最多，说明规则化时空场对长序列建模不可或缺。去掉连续查询后事件被强制归入离散 bin，时间精度损失导致 IoU 下降 4 个点。Topo 与 STC 作为辅助监督，单独去掉影响较小但方向一致。</aside>
+      </section>
+
       <section class="slide analysis-slide" data-section="误差分析" data-time="1:45"
         data-source="EV-UAV val_015 event labels；results/validation_metrics.json；代码包评价函数">
         <div class="slide-head">
@@ -841,7 +830,7 @@
             <p>精确事件 token 与规则 3D 时空场并行编码，并在每个原始事件时刻执行连续查询。</p>
           </div>
           <div><span>实验证据</span>
-            <p>组件消融表明局部 3D 上下文与全局时间注意力共同支撑主干性能。</p>
+            <p>消融显示：去掉局部 3D 上下文 Score 从 0.94 暴跌 0.26（至 0.68），是性能支柱；连续时间查询再贡献 0.06，全局时间注意力、拓扑约束与 STC 监督各贡献 0.02–0.03。</p>
           </div>
         </div>
         <div class="final-equation"><span class="math"

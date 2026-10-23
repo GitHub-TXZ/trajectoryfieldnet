@@ -115,25 +115,79 @@ if (formalResultTable) {
     <tr class="ours-row"><td><b>TrajectoryFieldNet</b></td><td>public val</td><td>0.968651</td><td>0.942803</td><td>0.969545</td><td>0.985300</td><td>0.0373×10⁻⁴</td><td>4.61M</td></tr>
     <tr class="ours-row"><td><b>TrajectoryFieldNet</b></td><td>frozen test</td><td><b>0.941637</b></td><td>0.917858</td><td>0.968399</td><td>0.949598</td><td>0.0641×10⁻⁴</td><td>4.61M</td></tr>`;
   const resultBlock = formalResultTable.closest('.our-result');
-  if (resultBlock) {
-    const ablation = document.createElement('div');
-    ablation.className = 'formal-ablation';
-    ablation.innerHTML = String.raw`
-      <h4>主干组件消融</h4>
-      <table class="research-table compact-result"><thead><tr><th>配置</th><th>验证 Score</th><th>变化</th></tr></thead><tbody>
-        <tr><td>完整 TrajectoryFieldNet</td><td>0.952253</td><td>—</td></tr>
-        <tr><td>移除全局时间注意力</td><td>0.936297</td><td>−0.015956</td></tr>
-        <tr><td>移除局部 3D 模块</td><td>0.684329</td><td>−0.267924</td></tr>
-      </tbody></table>`;
-    const note = resultBlock.querySelector('.result-note');
-    resultBlock.insertBefore(ablation, note || null);
-  }
 }
 
 const lossSketches = [
-  `<svg viewBox="0 0 320 125" role="img" aria-label="Dice 集合覆盖示意"><rect x="8" y="8" width="304" height="109" fill="#f7f8f5" stroke="#c5cecf"/><ellipse cx="143" cy="63" rx="78" ry="38" fill="#3478d1" fill-opacity=".18" stroke="#3478d1" stroke-width="2"/><ellipse cx="180" cy="63" rx="78" ry="38" fill="#a84d39" fill-opacity=".18" stroke="#a84d39" stroke-width="2"/><text x="95" y="22" fill="#3478d1" font-size="13">prediction</text><text x="211" y="22" fill="#a84d39" font-size="13">truth</text><text x="142" y="68" fill="#182631" font-size="15" text-anchor="middle">overlap</text><text x="160" y="105" fill="#64737a" font-size="12" text-anchor="middle">2|P∩G| / (|P|+|G|)</text></svg>`,
-  `<svg viewBox="0 0 320 125" role="img" aria-label="STC 局部时空支持示意"><rect x="8" y="8" width="304" height="109" fill="#f7f8f5" stroke="#c5cecf"/><g fill="#398a68">${Array.from({ length: 9 }, (_, i) => `<circle cx="${135 + (i % 3) * 22}" cy="${40 + Math.floor(i / 3) * 22}" r="5"/>`).join('')}</g><circle cx="157" cy="62" r="9" fill="#a84d39"/><g fill="#d77a32" opacity=".8"><circle cx="245" cy="38" r="5"/><circle cx="268" cy="82" r="5"/><circle cx="225" cy="95" r="5"/></g><text x="157" y="111" fill="#398a68" font-size="12" text-anchor="middle">supported neighborhood</text><text x="254" y="111" fill="#d77a32" font-size="12" text-anchor="middle">isolated noise</text></svg>`,
-  `<svg viewBox="0 0 320 125" role="img" aria-label="Topo 连通性与断裂示意"><rect x="8" y="8" width="304" height="109" fill="#f7f8f5" stroke="#c5cecf"/><path d="M30 85 C70 28 105 28 140 68 S210 108 286 30" fill="none" stroke="#398a68" stroke-width="7" stroke-linecap="round"/><path d="M30 35 C70 65 95 54 124 31" fill="none" stroke="#a84d39" stroke-width="5" stroke-dasharray="8 6"/><path d="M196 31 L220 54 L244 31" fill="none" stroke="#d77a32" stroke-width="5"/><text x="158" y="110" fill="#398a68" font-size="12" text-anchor="middle">connected target tube</text><text x="86" y="22" fill="#a84d39" font-size="12" text-anchor="middle">break</text><text x="226" y="22" fill="#d77a32" font-size="12" text-anchor="middle">spurious branch</text></svg>`
+  // Dice：预测集合左右移动，交集用双 clipPath 求两椭圆真实交集（透镜形），随移动实时变化
+  `<svg viewBox="0 0 320 200" role="img" aria-label="Dice 集合覆盖动画">
+    <defs>
+      <clipPath id="diceTruthClip"><ellipse cx="190" cy="105" rx="74" ry="44"/></clipPath>
+      <clipPath id="dicePredClip"><ellipse cx="130" cy="105" rx="74" ry="44">
+        <animate attributeName="cx" values="130;190;130" keyTimes="0;0.5;1" dur="3.2s" repeatCount="indefinite"/>
+      </ellipse></clipPath>
+    </defs>
+    <rect x="8" y="8" width="304" height="184" fill="#f7f8f5" stroke="#c5cecf"/>
+    <ellipse cx="190" cy="105" rx="74" ry="44" fill="#a84d39" fill-opacity=".16" stroke="#a84d39" stroke-width="2.5"/>
+    <ellipse cx="130" cy="105" rx="74" ry="44" fill="#3478d1" fill-opacity=".16" stroke="#3478d1" stroke-width="2.5">
+      <animate attributeName="cx" values="130;190;130" keyTimes="0;0.5;1" dur="3.2s" repeatCount="indefinite"/>
+    </ellipse>
+    <g clip-path="url(#diceTruthClip)"><g clip-path="url(#dicePredClip)"><rect x="20" y="55" width="260" height="100" fill="#7a5c8d" fill-opacity=".62"/></g></g>
+    <text x="222" y="40" fill="#a84d39" font-size="15">truth</text>
+    <text x="82" y="40" fill="#3478d1" font-size="15">prediction
+      <animate attributeName="x" values="82;142;82" keyTimes="0;0.5;1" dur="3.2s" repeatCount="indefinite"/>
+    </text>
+    <text x="190" y="112" fill="#4a2d5c" font-size="17" font-weight="bold" text-anchor="middle" opacity="0">overlap
+      <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.34;0.5;0.66;1" dur="3.2s" repeatCount="indefinite"/>
+    </text>
+    <text x="160" y="180" fill="#64737a" font-size="14" text-anchor="middle">2|P∩G| / (|P|+|G|)</text>
+  </svg>`,
+  // STC：真实目标在时空里形成连续轨迹（曲线上的点依次点亮、互相呼应）；轨迹外的孤立噪点被压暗
+  `<svg viewBox="0 0 320 200" role="img" aria-label="STC 邻域支持动画">
+    <rect x="8" y="8" width="304" height="184" fill="#f7f8f5" stroke="#c5cecf"/>
+    <path d="M30 158 Q120 36 288 130" fill="none" stroke="#b8c8c3" stroke-width="2.5" stroke-dasharray="2 9" stroke-linecap="round"/>
+    ${Array.from({ length: 13 }, (_, i) => {
+      const t = i / 12, x = (1 - t) ** 2 * 30 + 2 * (1 - t) * t * 120 + t * t * 288, y = (1 - t) ** 2 * 158 + 2 * (1 - t) * t * 36 + t * t * 130;
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="#398a68" opacity=".22"><animate attributeName="opacity" values=".22;1;.22" dur="2.6s" begin="${(0.16 * i).toFixed(2)}s" repeatCount="indefinite"/></circle>`;
+    }).join('')}
+    <circle cx="119.4" cy="93.6" r="33" fill="#398a68" fill-opacity=".07" stroke="#398a68" stroke-width="1.4" stroke-dasharray="4 4">
+      <animate attributeName="r" values="31;35;31" dur="2.2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="119.4" cy="93.6" r="9" fill="#a84d39" stroke="#f7f8f5" stroke-width="1.5">
+      <animate attributeName="r" values="8.5;12;8.5" dur="2.2s" repeatCount="indefinite"/>
+    </circle>
+    <g fill="#d77a32">
+      <circle cx="44" cy="78" r="7"><animate attributeName="opacity" values="1;.12;1" dur="2.8s" begin="0.3s" repeatCount="indefinite"/></circle>
+      <circle cx="262" cy="46" r="7"><animate attributeName="opacity" values="1;.12;1" dur="2.8s" begin="1.1s" repeatCount="indefinite"/></circle>
+      <circle cx="186" cy="166" r="7"><animate attributeName="opacity" values="1;.12;1" dur="2.8s" begin="1.8s" repeatCount="indefinite"/></circle>
+    </g>
+    <text x="150" y="28" fill="#2f7a5b" font-size="14" text-anchor="middle">continuous target trajectory</text>
+    <text x="120" y="140" fill="#398a68" font-size="12" text-anchor="middle">neighbors</text>
+    <text x="252" y="182" fill="#d77a32" font-size="14" text-anchor="middle">isolated noise</text>
+  </svg>`,
+  // Topo：一条连通目标管；断裂处先被挖空（红虚线/断点），再愈合接通；长在管上的假分叉被剪掉淡出
+  `<svg viewBox="0 0 320 200" role="img" aria-label="Topo 连通性与断裂动画">
+    <rect x="8" y="8" width="304" height="184" fill="#f7f8f5" stroke="#c5cecf"/>
+    <path d="M25 150 C90 50 200 50 295 130" fill="none" stroke="#398a68" stroke-width="9" stroke-linecap="round"/>
+    <path d="M25 150 C90 50 200 50 295 130" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 17" opacity=".7">
+      <animate attributeName="stroke-dashoffset" values="0;-210" dur="1.8s" repeatCount="indefinite"/>
+    </path>
+    <circle cx="102" cy="83" r="12" fill="#f7f8f5">
+      <animate attributeName="r" values="12;12;0;0;12" keyTimes="0;0.30;0.42;0.92;1" dur="3.6s" repeatCount="indefinite"/>
+    </circle>
+    <path d="M94 86 C100 83 105 81 110 80" fill="none" stroke="#a84d39" stroke-width="6" stroke-dasharray="7 7" stroke-linecap="round">
+      <animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.30;0.42;0.92;1" dur="3.6s" repeatCount="indefinite"/>
+    </path>
+    <g fill="#a84d39">
+      <circle cx="94" cy="86" r="4.5"><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.30;0.42;0.92;1" dur="3.6s" repeatCount="indefinite"/></circle>
+      <circle cx="110" cy="80" r="4.5"><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.30;0.42;0.92;1" dur="3.6s" repeatCount="indefinite"/></circle>
+    </g>
+    <path d="M196 36 L213 82 L238 38" fill="none" stroke="#d77a32" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+      <animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.55;0.67;0.92;1" dur="3.6s" repeatCount="indefinite"/>
+    </path>
+    <text x="102" y="62" fill="#a84d39" font-size="14" text-anchor="middle">break      <animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.30;0.42;0.92;1" dur="3.6s" repeatCount="indefinite"/>    </text>
+    <text x="217" y="28" fill="#d77a32" font-size="14" text-anchor="middle">spurious branch      <animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.55;0.67;0.92;1" dur="3.6s" repeatCount="indefinite"/>    </text>
+    <text x="160" y="184" fill="#2f7a5b" font-size="14" text-anchor="middle">connected target tube</text>
+  </svg>`
 ];
 document.querySelectorAll('.loss-three article').forEach((article, index) => {
   const sketch = document.createElement('div');
